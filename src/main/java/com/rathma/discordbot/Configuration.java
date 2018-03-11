@@ -17,6 +17,7 @@ public class Configuration {
     private String dbServer="";
     private String dbName="";
     private int dbPort;
+    private long botOwner;
 
     Configuration() {
         loadConfig();
@@ -35,6 +36,8 @@ public class Configuration {
             dbUser = obj.get("DBUser").getAsString();
             dbPass = obj.get("DBPass").getAsString();
             dbPort = obj.get("DBPort").getAsInt();
+            botOwner = obj.get("Owner").getAsLong();
+
         }
         catch (FileNotFoundException e)
         {
