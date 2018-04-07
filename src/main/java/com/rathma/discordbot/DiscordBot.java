@@ -1,5 +1,7 @@
 package com.rathma.discordbot;
 
+import com.rathma.discordbot.audio.commands.Play;
+import com.rathma.discordbot.audio.services.AudioService;
 import com.rathma.discordbot.core.commands.Prefix;
 import com.rathma.discordbot.core.commands.PrefixSet;
 import com.rathma.discordbot.core.services.CommandService;
@@ -9,6 +11,12 @@ import com.rathma.discordbot.experience.commands.*;
 import com.rathma.discordbot.experience.services.ExperienceService;
 import com.rathma.discordbot.experience.timedEvents.*;
 import com.rathma.discordbot.managers.TimedEventManager;
+import com.rathma.discordbot.marriage.commands.Divorce;
+import com.rathma.discordbot.marriage.commands.Marry;
+import com.rathma.discordbot.marriage.commands.SetMarriageLimit;
+import com.rathma.discordbot.marriage.commands.SetTicketRole;
+import com.rathma.discordbot.marriage.services.MarriageService;
+import com.rathma.discordbot.marriage.timedEvents.MarriageCleanup;
 import com.rathma.discordbot.utils.Mee6Import;
 import net.dv8tion.jda.core.AccountType;
 import net.dv8tion.jda.core.JDA;
@@ -72,17 +80,22 @@ public class DiscordBot {
     public void loadServices(){
         //jda.addEventListener(new MessageLogging(jda, db));
         jda.addEventListener(new CommandService(jda, db));
+        jda.addEventListener(new MarriageService(jda, db));
+       // jda.addEventListener(new AudioService(jda, db));
         jda.addEventListener(new ExperienceService(jda, db));
     }
 
     public void loadTimedEvents(){
         synchronized (timedEventManager.loadedEvents) {
+            //Marriage Timed Events
+            timedEventManager.loadTimedEvent(new MarriageCleanup(jda, db));
+            // Experience Timed Events
             timedEventManager.loadTimedEvent(new GuildRankUpdate(jda, db));
             timedEventManager.loadTimedEvent(new VoiceChatExperience(jda, db));
             timedEventManager.loadTimedEvent(new VoiceChatResetDaily(jda, db));
             timedEventManager.loadTimedEvent(new WeeklyExpReset(jda, db));
             timedEventManager.loadTimedEvent(new GuildWeeklyRankUpdate(jda, db));
-            //timedEventManager.loadTimedEvent(new GuildLevelRolesCheck(jda, db));
+            timedEventManager.loadTimedEvent(new GuildLevelRolesCheck(jda, db));
         }
     }
     /* Temp command to house loading commands */
@@ -103,7 +116,18 @@ public class DiscordBot {
         commandService.loadCommand(new Prefix());
         commandService.loadCommand(new PrefixSet());
 
+        //Marriage Commands
+        commandService.loadCommand(new Marry());
+        commandService.loadCommand(new Divorce());
+        commandService.loadCommand(new SetMarriageLimit());
+        commandService.loadCommand(new SetTicketRole());
+
+        //Audio Commands
+       // commandService.loadCommand(new Play());
+
+
        //Experience Commands
+
         commandService.loadCommand(new Rank());
         commandService.loadCommand(new SetExpRatio());
         commandService.loadCommand(new ExpRatio());

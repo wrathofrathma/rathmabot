@@ -9,8 +9,8 @@ import org.slf4j.LoggerFactory;
 public class Main {
 
     public static void main(String[] args) {
-        //Logger rootLog= (Logger)LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
-        //rootLog.setLevel(Level.ERROR);
+        Logger rootLog= (Logger)LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+        rootLog.setLevel(Level.ERROR);
         DiscordBot discord = new DiscordBot();
         discord.run();
     }

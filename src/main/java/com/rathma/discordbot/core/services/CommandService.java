@@ -4,6 +4,7 @@ import com.rathma.discordbot.entities.Command;
 import com.rathma.discordbot.database.Database;
 import com.rathma.discordbot.entities.Service;
 import net.dv8tion.jda.core.JDA;
+import net.dv8tion.jda.core.Permission;
 import net.dv8tion.jda.core.entities.Message;
 import net.dv8tion.jda.core.events.Event;
 import net.dv8tion.jda.core.events.message.guild.GuildMessageReceivedEvent;

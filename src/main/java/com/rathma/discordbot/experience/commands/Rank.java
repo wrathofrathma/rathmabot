@@ -186,6 +186,7 @@ public class Rank extends Command {
             /* TODO check for uuid */
             if (mentions.size() < 1) {
                 message.getChannel().sendMessage("Syntax error: No user provided or user not in server.").queue();
+                commandService.ongoingCommands.remove(this);
                 return;
             } else {
                 uuid = mentions.get(0).getIdLong();
