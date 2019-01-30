@@ -938,6 +938,7 @@ public class ExperienceService extends Service{
             }
             userInfo = new Document().append(member.getGuild().getId(),guildInfo);
         }
+        userInfo.append("LAST KNOWN USERNAME", message.getMember().getUser().getName());
         update.append("$set", userInfo);
         database.updateOne(userTable, filter, update);
         updateUserCooldown(message);

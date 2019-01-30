@@ -77,6 +77,7 @@ public class Marry extends Command {
         return false;
     }
 
+    /* Returns true if it hits the guild limit */
     public boolean checkGuildLimit(long guildID){
         Document filter = new Document().append("GUILD ID", guildID);
         Document query = database.queryOne(MarriageService.MARRIAGE_SETTTINGS, filter);
@@ -90,10 +91,9 @@ public class Marry extends Command {
         if(query2==null){
             return false;
         }
-        if(query2.size() <= guildLimit)
-            return true;
-
-        return false;
+        if(query2.size() < guildLimit)
+            return false;
+        return true;
     }
 
     public void run(Message message){

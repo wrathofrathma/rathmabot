@@ -1,7 +1,5 @@
 package com.rathma.discordbot;
 
-import com.rathma.discordbot.audio.commands.Play;
-import com.rathma.discordbot.audio.services.AudioService;
 import com.rathma.discordbot.core.commands.Prefix;
 import com.rathma.discordbot.core.commands.PrefixSet;
 import com.rathma.discordbot.core.services.CommandService;
@@ -17,7 +15,6 @@ import com.rathma.discordbot.marriage.commands.SetMarriageLimit;
 import com.rathma.discordbot.marriage.commands.SetTicketRole;
 import com.rathma.discordbot.marriage.services.MarriageService;
 import com.rathma.discordbot.marriage.timedEvents.MarriageCleanup;
-import com.rathma.discordbot.utils.Mee6Import;
 import net.dv8tion.jda.core.AccountType;
 import net.dv8tion.jda.core.JDA;
 import net.dv8tion.jda.core.JDABuilder;
@@ -146,6 +143,10 @@ public class DiscordBot {
         commandService.loadCommand(new ExpSet());
         commandService.loadCommand(new WeeklyLeaderboard());
         commandService.loadCommand(new MVPAssign());
+        commandService.loadCommand(new AwardUser());
+        commandService.loadCommand(new AwardRole());
+        commandService.loadCommand(new ResetWeekly());
+        commandService.loadCommand(new ExpRoleRatio());
 
     }
 
