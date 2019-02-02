@@ -14,7 +14,16 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+/*
+ * Functions to be covered
+ * * isting roles and their ratios
+ * * removing roles from the ratio list
+ * * adding roles to the ratio list
 
+ * Edits to make to the experienceservice
+
+
+ */
 public class ExpRoleRatio extends Command {
     public ExpRoleRatio(CommandService commandService, Message message) {
         identifier = "exp";
@@ -37,6 +46,7 @@ public class ExpRoleRatio extends Command {
 
     }
 
+    // TODO - This needs to be changed to generate a MessageEmbed containing the current roles and their ratios
     public MessageEmbed buildRoleList(long guildID){
         List<Object> listeners =  jda.getRegisteredListeners();
         ExperienceService experienceService=null;
@@ -52,19 +62,18 @@ public class ExpRoleRatio extends Command {
         embedBuilder.setColor(Color.BLUE);
         embedBuilder.setDescription("**" + guild.getName() + "'s experience altering roles.**");
         String roles = "";
-    /* TODO change this to role ratio map */
-        Map<Long, List<Long>> rolesMap = experienceService.blockedRoles;
-        if(!rolesMap.containsKey(guildID)) {
-            embedBuilder.addField("Roles", roles, true);
-            return embedBuilder.build();
-        }
-        for(Long roleID : rolesMap.get(guildID)){
-            Role r = guild.getRoleById(roleID);
+        String ratios = "";
+        Map<Long, Map<Long, Double>> expRatioMap = experienceService.expRatioRoles;
+        for(Long key : expRatioMap.get(guildID).keySet()){
+            Role r = guild.getRoleById(key);
             if(r!=null){
                 roles = roles.concat(r.getName() + "\n");
+                ratios = ratios.concat(expRatioMap.get(guildID).get(key) + "\n");
             }
         }
+
         embedBuilder.addField("Roles", roles, true);
+        embedBuilder.addField("Role Ratio", ratios, true);
         return embedBuilder.build();
     }
 
@@ -76,7 +85,7 @@ public class ExpRoleRatio extends Command {
         return null;
     }
 
-    public void run(Message message) {
+     public void run(Message message) {
         if (!checkUserPermissions(message)) {
             commandService.ongoingCommands.remove(this);
             return;
@@ -88,7 +97,11 @@ public class ExpRoleRatio extends Command {
         boolean writePermissions = checkChannelWritePermission(message.getTextChannel());
         long guildID = message.getGuild().getIdLong();
         String parsedCommand = getStrippedParameters(guildID, message.getContentRaw());
-
+        // Command expected input : exp roleratio <command> number/role role
+        // Post parse command possibilities
+        // add double role
+        // remove role
+        // list
         String[] messageSplit = parsedCommand.split(" ");
 
         if (messageSplit.length < 1) {
@@ -97,6 +110,7 @@ public class ExpRoleRatio extends Command {
             commandService.ongoingCommands.remove(this);
             return;
         }
+
         if (messageSplit[0].equals("list")) {
             /* List */
             if (writePermissions)
@@ -115,13 +129,36 @@ public class ExpRoleRatio extends Command {
                 commandService.ongoingCommands.remove(this);
                 return;
             }
+
+            
             if (messageSplit[0].equals("add")) {
+                double ratio = 0;
+                if(messageSplit.length > 2){
+                    // TODO - catch whatever numberical throw it does
+                    try{
+                        ratio = Double.parseDouble(messageSplit[1]);
+                    }
+                    catch (NumberFormatException e){
+                        if(writePermissions){
+                            message.getChannel().sendMessage("Hey you dumby, that's not a number.").queue();
+                            commandService.ongoingCommands.remove(this);
+                            return;
+                        }
+                    }
+                }
+                else{
+                    if(writePermissions)
+                        message.getChannel().sendMessage("Error: Not enough parameters and fuck descriptive error messages.").queue();
+                    commandService.ongoingCommands.remove(this);
+                    return;
+                }
+
                 List<Role> roleList = message.getMentionedRoles();
                 if (roleList == null || roleList.isEmpty()) {
                     Role role = getMentionedRole(guildID, parsedCommand.substring(messageSplit[0].length() + 1));
                     if (role != null) {
-                        experienceService.setIgnoreRole(role);
-                        message.getChannel().sendMessage("Added role to roleblock list").queue();
+                        experienceService.setExpRatioRole(role, ratio);
+                        message.getChannel().sendMessage("Added role to exp ratio modifier list").queue();
                         commandService.ongoingCommands.remove(this);
                         return;
                     }
@@ -133,7 +170,8 @@ public class ExpRoleRatio extends Command {
                     }
                 }
                 else {
-                    experienceService.setIgnoreRole(roleList);
+                    experienceService.setExpRatioRole(roleList.get(0), ratio);
+                    message.getChannel().sendMessage("Added role to exp ratio modifier list").queue();
                     commandService.ongoingCommands.remove(this);
                     return;
                 }
@@ -143,8 +181,8 @@ public class ExpRoleRatio extends Command {
                 if (roleList == null || roleList.isEmpty()) {
                     Role role = getMentionedRole(guildID, parsedCommand.substring(messageSplit[0].length() + 1));
                     if (role != null) {
-                        experienceService.removeIgnoreRoles(role);
-                        message.getChannel().sendMessage("Removed role from roleblock list").queue();
+                        experienceService.removeExpRatioRole(role);
+                        message.getChannel().sendMessage("Removed role from exp ratio modifier list").queue();
                         commandService.ongoingCommands.remove(this);
                         return;
                     }
@@ -156,7 +194,8 @@ public class ExpRoleRatio extends Command {
                     }
                 }
                 else {
-                    experienceService.removeIgnoreRoles(roleList);
+                    experienceService.removeExpRatioRole(roleList.get(0));
+                    message.getChannel().sendMessage("Removed role from exp ratio modifier list").queue();
                     commandService.ongoingCommands.remove(this);
                     return;
                 }

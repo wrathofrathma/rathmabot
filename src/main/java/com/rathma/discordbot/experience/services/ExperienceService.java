@@ -23,6 +23,7 @@ public class ExperienceService extends Service{
 
     public Map<Long, List<Long>> blockedChannels;
     public Map<Long, List<Long>> blockedRoles;
+    public Map<Long, Map<Long, Double>> expRatioRoles;
     public Map<Long, Map<Long, Integer>> levelRoles;
     public Map<Long, Map<Long, Integer>> rankRoles;
     public Map<Long, Double> guildCooldownTimers;
@@ -42,6 +43,7 @@ public class ExperienceService extends Service{
         levelRoles = new HashMap<>();
         rankRoles = new HashMap<>();
         weeklyRoles = new HashMap<>();
+        expRatioRoles = new HashMap<>();
         loadSettings();
     }
 
@@ -111,6 +113,14 @@ public class ExperienceService extends Service{
                     long roleID = Long.decode(key);
                     int rankReq = roles.getInteger(key);
                     weeklyRoles.get(guildID).put(roleID, rankReq);
+                }
+            }
+            if(i.containsKey("EXP RATIO ROLES")){
+                expRatioRoles.put(i.getLong("GUILD ID"), new HashMap<>());
+                //TODO Finish the import. We need to find out how we're adding it first though 
+                Map<String, Double> qMap = i.get("EXP RATIO ROLES", Map.class);
+                for(String s : qMap.keySet()){
+                    expRatioRoles.get(i.getLong("GUILD ID")).put(Long.decode(s) , qMap.get(s));
                 }
             }
         }
@@ -892,8 +902,8 @@ public class ExperienceService extends Service{
     public float getGuildCooldown(long guildID){
         return guildCooldownTimers.get(guildID).floatValue();
     }
-    public int generateRandomExp(long guildID, int comboBonus){
-        int exp = Math.round(ThreadLocalRandom.current().nextInt(15,26) * getGuildExpRatio(guildID) * (float)(1+(comboBonus*comboBonusPercent/100.0)));
+    public int generateRandomExp(long guildID, int comboBonus, double multiplier){
+        int exp = Math.round(ThreadLocalRandom.current().nextInt(15,26) * getGuildExpRatio(guildID) * (float)(1+(comboBonus*comboBonusPercent/100.0)) * (float)multiplier);
         return exp;
     }
 
@@ -907,24 +917,57 @@ public class ExperienceService extends Service{
         Document userInfo;
         if(query==null ||!query.containsKey(member.getGuild().getId())){
             /* User doesn't exist or has never spoken in the guild before. Either way we do the same thing */
-            int exp = generateRandomExp(member.getGuild().getIdLong(), 0);
+            List<Role> userRoles = member.getRoles();
+            double multiplier = 1;
+            long guildID = member.getGuild().getIdLong();
+            if(expRatioRoles.containsKey(guildID)){
+                Map<Long, Double> guildExpRoles = expRatioRoles.get(guildID);
+                for(Role r : userRoles){
+                    if(guildExpRoles.containsKey(r.getIdLong())){
+                        multiplier *= guildExpRoles.get(r.getIdLong());
+                    }
+                }
+            }
+            int exp = generateRandomExp(member.getGuild().getIdLong(), 0, multiplier);
             guildInfo = new Document().append("EXPERIENCE", exp);
             guildInfo.append("WEEKLY EXPERIENCE", exp);
             userInfo = new Document().append(member.getGuild().getId(), guildInfo);
         }
         else if(!query.get(member.getGuild().getId(), Document.class).containsKey("EXPERIENCE")){
             /* The experience field doesn't exist */
-            int exp = generateRandomExp(member.getGuild().getIdLong(), 0);
+            List<Role> userRoles = member.getRoles();
+            double multiplier = 1;
+            long guildID = member.getGuild().getIdLong();
+            if(expRatioRoles.containsKey(guildID)){
+                Map<Long, Double> guildExpRoles = expRatioRoles.get(guildID);
+                for(Role r : userRoles){
+                    if(guildExpRoles.containsKey(r.getIdLong())){
+                        multiplier *= guildExpRoles.get(r.getIdLong());
+                    }
+                }
+            }
+            int exp = generateRandomExp(member.getGuild().getIdLong(), 0, multiplier);
             guildInfo = new Document().append("EXPERIENCE", exp);
             guildInfo.append("WEEKLY EXPERIENCE", exp);
             userInfo = new Document().append(member.getGuild().getId(), guildInfo);
         }
         else{
+            List<Role> userRoles = member.getRoles();
+            double multiplier = 1;
+            long guildID = member.getGuild().getIdLong();
+            if(expRatioRoles.containsKey(guildID)){
+                Map<Long, Double> guildExpRoles = expRatioRoles.get(guildID);
+                for(Role r : userRoles){
+                    if(guildExpRoles.containsKey(r.getIdLong())){
+                        multiplier *= guildExpRoles.get(r.getIdLong());
+                    }
+                }
+            }
             guildInfo = query.get(message.getGuild().getId(), Document.class);
             int combo=0;
             if(guildInfo.containsKey("COMBO"))
                 combo = guildInfo.getInteger("COMBO");
-            int generatedExp = generateRandomExp(message.getGuild().getIdLong(), combo);
+            int generatedExp = generateRandomExp(message.getGuild().getIdLong(), combo, multiplier);
             int newTotalExp = guildInfo.getInteger("EXPERIENCE") + generatedExp;
             checkMemberLevelRoles(member, Rank.getLevel(newTotalExp));
             guildInfo.append("EXPERIENCE", newTotalExp);
@@ -986,6 +1029,84 @@ public class ExperienceService extends Service{
             }
         }
     }
+    public void removeExpRatioRole(Role role){
+        long guildID = role.getGuild().getIdLong();
+        boolean existsKey = true;
+        boolean existsDB = true;
+        if(!expRatioRoles.containsKey(guildID)){
+            expRatioRoles.put(guildID, new HashMap<>());
+            existsKey = false;
+        }
+
+        /* Get the database query */
+        Document filter = new Document().append("GUILD ID", guildID);
+        Document query = database.queryOne(settingsTable, filter);
+        if(query==null) {
+            generateGuildConfig(guildID);
+            existsDB = false;
+        }
+
+        /* Remove from keyset */
+        if(existsKey){
+            expRatioRoles.get(guildID).remove(role.getIdLong());
+        }
+        if(existsDB){
+            Document update = new Document();
+            Document updateData = new Document();
+            if(query.containsKey("EXP RATIO ROLES")){
+                Map<String, Double> qMap = query.get("EXP RATIO ROLES", Map.class);
+                BsonDocument roleRatios = new BsonDocument();
+                for(String s : qMap.keySet()){
+                    if(!s.equals(role.getId())){
+                        roleRatios.append(s, new BsonDouble(qMap.get(s)));
+                    }
+                }
+                updateData.append("EXP RATIO ROLES", roleRatios);
+                update.append("$set", updateData);
+                database.updateOne(settingsTable, filter, update);
+            }
+        }
+    }
+     public void setExpRatioRole(Role role, double ratio){
+        long guildID = role.getGuild().getIdLong();
+        if(!expRatioRoles.containsKey(guildID)){
+            expRatioRoles.put(guildID, new HashMap<>());
+        }
+
+
+        Document filter = new Document().append("GUILD ID", guildID);
+        Document query = database.queryOne(settingsTable, filter);
+        Document update = new Document();
+        Document updateData = new Document();
+
+        if(query==null) {
+            generateGuildConfig(guildID);
+            query = database.queryOne(settingsTable, filter);
+        }
+
+        if(query.containsKey("EXP RATIO ROLES")){
+            Map<String, Double> qMap = query.get("EXP RATIO ROLES", Map.class);
+            BsonDocument roleRatios = new BsonDocument();
+            for(String s : qMap.keySet()){
+                if(!s.equals(role.getId()))
+                    roleRatios.append(s, new BsonDouble(qMap.get(s)));
+            }
+
+            roleRatios.append(role.getId(), new BsonDouble(ratio));
+            updateData.append("EXP RATIO ROLES", roleRatios);
+        }
+        else{
+            BsonDocument roleRatios = new BsonDocument();
+            roleRatios.append(role.getId(), new BsonDouble(ratio));
+            updateData.append("EXP RATIO ROLES", roleRatios);
+        }
+
+        update.append("$set", updateData);
+        database.updateOne(settingsTable, filter, update);
+        (expRatioRoles.get(guildID)).put(role.getIdLong(), ratio);
+
+    }
+
     @Override
     public void onEvent(Event event) {
         if(event instanceof GuildMessageReceivedEvent){

@@ -48,14 +48,26 @@ public class VoiceChatExperience extends TimedEvent {
         }
         return voiceChannelList;
     }
-    public int generateRandomExp(long guildID, double timeInVC){
+    public int generateRandomExp(long guildID, double timeInVC, Member member){
         List<Object> listeners = jda.getRegisteredListeners();
         ExperienceService experienceService = null;
         for(Object o : listeners){
             if(o instanceof ExperienceService)
                 experienceService = (ExperienceService)o;
         }
-        int baseExp = experienceService.generateRandomExp(guildID,0);
+        List<Role> userRoles = member.getRoles();
+        double multiplier = 1;
+
+        if(experienceService.expRatioRoles.containsKey(guildID)){
+            Map<Long, Double> guildExpRoles = experienceService.expRatioRoles.get(guildID);
+            for(Role r : userRoles){
+                if(guildExpRoles.containsKey(r.getIdLong())){
+                    multiplier *= guildExpRoles.get(r.getIdLong());
+                }
+            }
+        }
+
+        int baseExp = experienceService.generateRandomExp(guildID,0, multiplier);
 
         /* Create VC penalty */
         double vcMod = timeInVC / 30;
@@ -84,7 +96,7 @@ public class VoiceChatExperience extends TimedEvent {
         Document update = new Document();
         if(query==null ||!query.containsKey(Long.toString(guildID))){
             /* User doesn't exist or has never spoken in the guild before */
-            guildData = new Document().append("EXPERIENCE", generateRandomExp(member.getGuild().getIdLong(),0));
+            guildData = new Document().append("EXPERIENCE", generateRandomExp(member.getGuild().getIdLong(),0, member));
             guildData.append("WEEKLY EXPERIENCE", 0);
             guildData.append("DAILY VC TIME", 1);
             userData = new Document().append(member.getGuild().getId(), guildData);
@@ -106,7 +118,7 @@ public class VoiceChatExperience extends TimedEvent {
             /* Let's generate our new exp and stuff */
             int currentExp = guildData.getInteger("EXPERIENCE");
             int timeInVC = guildData.getInteger("DAILY VC TIME");
-            int generatedExp = generateRandomExp(guildID, timeInVC);
+            int generatedExp = generateRandomExp(guildID, timeInVC, member);
             int newExp = currentExp + generatedExp;
             int newWeeklyExp = guildData.getInteger("WEEKLY EXPERIENCE") + generatedExp;
             /* Push new values to database */

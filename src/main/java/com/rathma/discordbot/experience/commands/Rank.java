@@ -9,6 +9,8 @@ import net.dv8tion.jda.core.entities.Message;
 import net.dv8tion.jda.core.entities.MessageEmbed;
 import net.dv8tion.jda.core.entities.User;
 import org.bson.Document;
+import net.dv8tion.jda.core.entities.Member;
+import net.dv8tion.jda.core.entities.Role;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -111,7 +113,24 @@ public class Rank extends Command {
         int exp = query.get(Long.toString(guildID), Document.class).getInteger("EXPERIENCE");
         return getLevel(exp);
     }
-
+    public double getRoleMultiplier(Member member){
+        double multiplier = 1.0;
+        long guildID = member.getGuild().getIdLong();
+        List<Object> listeners = jda.getRegisteredListeners();
+        ExperienceService experienceService=null;
+        for(Object o : listeners){
+            if(o instanceof ExperienceService) {
+                experienceService = (ExperienceService) o;
+            }
+        }
+        List<Role> userRoles = member.getRoles();
+        for(Role r : userRoles){
+            if(experienceService.expRatioRoles.get(guildID).containsKey(r.getIdLong())){
+                multiplier *= experienceService.expRatioRoles.get(guildID).get(r.getIdLong());
+            }
+        }
+        return multiplier;
+    }
     public int getComboExp(long uuid, long guildID){
         List<Object> listeners = jda.getRegisteredListeners();
         ExperienceService experienceService=null;
@@ -133,7 +152,7 @@ public class Rank extends Command {
         return query.get(Long.toString(guildID), Document.class).getInteger("COMBO")*experienceService.comboBonusPercent;
     }
 
-    public MessageEmbed createRankMessage(long uuid, long guildID){
+    public MessageEmbed createRankMessage(long uuid, long guildID, Message message){
         User user = jda.getUserById(uuid);
 
         long memberTotalExp = getExperience(uuid, guildID);
@@ -153,6 +172,7 @@ public class Rank extends Command {
         embedBuilder.addField("Rank", Long.toString(getRank(uuid,guildID)) + "/" + jda.getGuildById(guildID).getMembers().size(), true);
         embedBuilder.addField("Experience", Long.toString(expToNextLevel) + "/" + Long.toString(nextLevelExpReq - currentLevelExpReq) + " - total (" + memberTotalExp + ")" , true);
         embedBuilder.addField("Combo Bonus", Integer.toString(getComboExp(uuid, guildID)) + "%", true);
+        embedBuilder.addField("Total Role Multiplier", getRoleMultiplier(message.getMember())+"", true);
         embedBuilder.setThumbnail(user.getAvatarUrl());
         return embedBuilder.build();
     }
@@ -192,7 +212,7 @@ public class Rank extends Command {
                 uuid = mentions.get(0).getIdLong();
             }
         }
-        message.getChannel().sendMessage(createRankMessage(uuid, message.getGuild().getIdLong())).queue();
+        message.getChannel().sendMessage(createRankMessage(uuid, message.getGuild().getIdLong(), message)).queue();
         commandService.ongoingCommands.remove(this);
     }
 }
